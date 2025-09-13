@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-demo
+  namespace: homework
+  labels:
+    homework: one
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 8000
+    lifecycle:
+      #postStart:
+      #  exec:
+      #    command: ["/bin/sh", "-c", "date; echo 'PreStop hook started'; sleep 10"]
+      preStop:
+        exec:
+         command:
+          - /bin/sh
+          - -c
+          - |
+            date >> /var/log/hooks/lifecycle.log
+            echo 'PreStop hook started'>> /var/log/hooks/lifecycle.log
+            rm -f /homework/index.html
+            rm -f /usr/share/nginx/html/index.html
+            echo "удалили файлики index.html" >> /var/log/hooks/lifecycle.log
+            date >> /var/log/hooks/lifecycle.log
+            echo "-----"
+    volumeMounts:
+    - name: workdir
+      #mountPath: /usr/share/nginx/html
+      mountPath: /homework
+    - name: hook-logs
+      mountPath: /var/log/hooks
+    command: ["/bin/sh", "-c"]
+    args: 
+    - |
+      sed -i 's/listen[[:space:]]*80;/listen 8000;/' /etc/nginx/conf.d/default.conf
+      cp -r /homework/* /usr/share/nginx/html/ && nginx -g 'daemon off;'
+  # These containers are run during pod initialization
+  initContainers:
+  - name: install
+    image: busybox:1.28
+    command:
+    - wget
+    - "-O"
+    - "/init/index.html"
+    - http://info.cern.ch
+    volumeMounts:
+    - name: workdir
+      mountPath: "/init"
+  dnsPolicy: Default
+  volumes:
+  - name: workdir
+    emptyDir: {}
+  - name: hook-logs
+    persistentVolumeClaim:
+      claimName: hook-logs-pvc
+

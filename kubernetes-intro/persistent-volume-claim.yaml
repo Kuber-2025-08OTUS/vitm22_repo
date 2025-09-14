@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hook-logs-pvc
+  namespace: homework
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      #storage: 1Gi
+      storage: 100M

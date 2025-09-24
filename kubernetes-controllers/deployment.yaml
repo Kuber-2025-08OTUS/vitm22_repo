@@ -16,11 +16,27 @@ spec:
       labels:
         app: nginx2
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: homework
+                    operator: In
+                    values: 
+                    - "true"
       containers:
       - name: nginx
         image: nginx
         ports:
         - containerPort: 8000
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /homework/index.html
+          initialDelaySeconds: 6
+          periodSeconds: 5
         lifecycle:
           #postStart:
           #  exec:
@@ -63,4 +79,9 @@ spec:
       volumes:
       - name: workdir
         emptyDir: {}
+      restartPolicy: Always
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
 

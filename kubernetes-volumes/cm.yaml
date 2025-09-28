@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  app.properties: |
+    database.host=postgres
+    database.port=5432
+    app.name=my-application
+    log.level=INFO
+    uuu=ttt
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        
+        location / {
+            proxy_pass http://localhost:8080;
+        }
+    }

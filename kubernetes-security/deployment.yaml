@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx2-deployment
+  namespace: homework
+  labels:
+    app: nginx
+    homework: four
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx2
+  template:
+    metadata:
+      labels:
+        app: nginx2
+    spec:
+      serviceAccountName: monitoring
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: homework
+                    operator: In
+                    values: 
+                    - "true"
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: 8000
+          initialDelaySeconds: 6
+          periodSeconds: 5
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - |
+                TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+                curl -k https://${KUBERNETES_SERVICE_HOST}/metrics --header "Authorization: Bearer ${TOKEN}" > /usr/share/nginx/html/metrics.html
+          preStop:
+            exec:
+             command:
+              - /bin/sh
+              - -c
+              - |
+                date
+                echo 'PreStop hook started'
+                rm -f /homework/index.html
+                rm -f /usr/share/nginx/html/index.html
+                echo "удалили файлики index.html"
+                date
+                echo "-----"
+        volumeMounts:
+        - name: workdir
+          #mountPath: /usr/share/nginx/html
+          mountPath: /homework
+        - name: config-volume
+          mountPath: /homework/conf
+          readOnly: true
+        command: ["/bin/sh", "-c"]
+        args: 
+        - |
+          sed -i 's/listen[[:space:]]*80;/listen 8000;/' /etc/nginx/conf.d/default.conf
+          cp -r /homework/* /usr/share/nginx/html/ && nginx -g 'daemon off;'
+      # These containers are run during pod initialization
+      initContainers:
+      - name: install
+        image: busybox:1.28
+        command:
+        - wget
+        - "-O"
+        - "/init/index.html"
+        - http://info.cern.ch
+        volumeMounts:
+        - name: workdir
+          mountPath: "/init"
+      dnsPolicy: Default
+      volumes:
+      - name: workdir
+        persistentVolumeClaim:
+          claimName: pv-claim
+      - name: config-volume
+        configMap:
+          name: app-config
+      
+      restartPolicy: Always
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
